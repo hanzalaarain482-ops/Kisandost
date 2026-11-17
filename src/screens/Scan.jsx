@@ -7,17 +7,17 @@ import { CROPS, typeLabel } from '../diseases.js'
 import { preparePhoto } from '../imageTools.js'
 import { diagnose, saveScan } from '../diagnose.js'
 
-// Qadam: 1) fasal chunein  2) photo  3) quality check  4) AI  5) nateeja
+// Qadam: 1) photo (fasal chunna zaroori nahi — AI khud pehchanta hai)  2) quality check  3) AI  4) nateeja
 export default function Scan({ onBack }) {
   const fileRef = useRef(null)
-  const [crop, setCrop] = useState(null)
+  const [crop, setCrop] = useState(null) // null = khud pehchane (auto)
   const [photo, setPhoto] = useState(null)
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState(null)
   const [res, setRes] = useState(null)
 
   useEffect(() => {
-    say('pick_crop')
+    say('auto_scan')
   }, [])
 
   useEffect(() => () => photo && URL.revokeObjectURL(photo), [photo])
@@ -25,7 +25,6 @@ export default function Scan({ onBack }) {
   function chooseCrop(c) {
     vibrate()
     setCrop(c)
-    say('take_photo')
   }
 
   const openCamera = () => {
@@ -58,7 +57,7 @@ export default function Scan({ onBack }) {
 
     setBusy(true)
     say('checking')
-    const out = await diagnose({ base64: prepared.base64, crop: crop.id })
+    const out = await diagnose({ base64: prepared.base64, crop: crop?.id || null })
     setBusy(false)
     setRes(out)
     vibrate(out.disease.severity === 'high' ? [100, 60, 100] : 60)
@@ -66,7 +65,7 @@ export default function Scan({ onBack }) {
 
     saveScan({
       at: new Date().toISOString(),
-      crop: crop.id,
+      crop: out.crop || '',
       disease: out.disease.id,
       name: out.disease.english,
       confidence: Math.round((out.confidence || 0) * 100),
@@ -77,14 +76,15 @@ export default function Scan({ onBack }) {
   }
 
   const d = res?.disease
+  const cropInfo = res?.crop ? CROPS.find((c) => c.id === res.crop) : null
   const tone = !d ? '' : d.id === 'healthy' ? 'good' : d.id === 'unknown' ? 'wait' : 'bad'
 
   return (
     <>
       <TopBar
-        title={crop ? `${crop.name} چیک کریں` : 'فصل چیک کریں'}
-        onBack={crop && !photo ? () => setCrop(null) : onBack}
-        speakId={crop ? 'take_photo' : 'pick_crop'}
+        title="فصل چیک کریں"
+        onBack={onBack}
+        speakId="auto_scan"
       />
       <div className="screen">
         <input
@@ -98,32 +98,33 @@ export default function Scan({ onBack }) {
           tabIndex={-1}
         />
 
-        {/* 1. Fasal chunein */}
-        {!crop && (
-          <>
-            <div className="prompt">
-              <span>کون سی فصل ہے؟</span>
-              <SpeakBtn id="pick_crop" />
-            </div>
-            <div className="crop-pick">
-              {CROPS.map((c) => (
-                <button type="button" key={c.id} className="crop-pick-btn" onClick={() => chooseCrop(c)}>
-                  <span className="big-emoji" aria-hidden="true">{c.emoji}</span>
-                  {c.name}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-
         {/* 2. Photo lein */}
-        {crop && !photo && (
+        {!photo && (
           <>
             <div className="scan-area">
               <button type="button" className="shutter" aria-label="تصویر لیں" onClick={openCamera}>
                 <Icon name="camera" size={70} />
               </button>
               <b style={{ fontSize: 28 }}>تصویر لیں</b>
+              <span className="auto-note">
+                <Icon name="leaf" size={20} /> فصل اور بیماری خود پہچانی جائے گی
+              </span>
+            </div>
+
+            <div className="crop-chips" role="group" aria-label="فصل (اختیاری)">
+              <button type="button" className={'chip' + (!crop ? ' on' : '')} onClick={() => chooseCrop(null)}>
+                <Icon name="check" size={18} /> خود پہچانے
+              </button>
+              {CROPS.map((c) => (
+                <button
+                  type="button"
+                  key={c.id}
+                  className={'chip' + (crop?.id === c.id ? ' on' : '')}
+                  onClick={() => chooseCrop(c)}
+                >
+                  <span aria-hidden="true">{c.emoji}</span> {c.name}
+                </button>
+              ))}
             </div>
             <div className="scan-steps">
               <div><b>1</b><Icon name="leaf" size={34} color="var(--green)" />بیمار پتا</div>
@@ -170,6 +171,15 @@ export default function Scan({ onBack }) {
         {/* 4. Nateeja */}
         {d && (
           <>
+            <div className="detected">
+              <span className="big-emoji small" aria-hidden="true">{cropInfo?.emoji || '🌱'}</span>
+              <span style={{ flex: 1 }}>
+                <small>{res.autoCrop ? 'پہچانی گئی فصل' : 'فصل'}</small>
+                <b>{cropInfo?.name || res.aiCropName || 'نامعلوم فصل'}</b>
+              </span>
+              {res.autoCrop && <span className="tag-ai">AI</span>}
+            </div>
+
             <div className={'verdict ' + tone}>
               <span className="big-icon">
                 <Icon name={tone === 'good' ? 'check' : tone === 'wait' ? 'user' : 'alert'} size={42} />

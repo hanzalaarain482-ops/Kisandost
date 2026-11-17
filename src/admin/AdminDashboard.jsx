@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import VoicePage from './VoicePage.jsx'
 import LibraryPage from './LibraryPage.jsx'
+import SettingsPage from './SettingsPage.jsx'
 import { loadScans, REVIEW_BELOW as REVIEW_P } from '../diagnose.js'
 
 // DEMO data — asli data database se aayega
@@ -22,11 +23,11 @@ const sources = [
   ['Treatment library (expert verified)', '3 crops', true],
 ]
 
-const menu = ['Dashboard', 'Expert Review', 'Disease Library', 'Voice', 'Mandi Rates', 'Farmers', 'Partners & Ads', 'Settings']
+const menu = ['Dashboard', 'Expert Review', 'Disease Library', 'Voice', 'Mandi Rates', 'Login / OTP', 'Farmers', 'Partners & Ads']
 const REVIEW_BELOW = Math.round(REVIEW_P * 100) // is % se kam AI confidence → expert check karega
 const cropEn = { wheat: 'Wheat', cotton: 'Cotton', rice: 'Rice' }
 
-export default function AdminDashboard({ rates, setRates, onLogout }) {
+export default function AdminDashboard({ rates, setRates, onLogout, session, setSession }) {
   const [page, setPage] = useState('Dashboard')
   // Is phone/browser par kiye gaye asli scans + demo scans
   const scans = [
@@ -216,7 +217,15 @@ export default function AdminDashboard({ rates, setRates, onLogout }) {
 
           {page === 'Voice' && <VoicePage flash={flash} />}
 
-          {['Farmers', 'Partners & Ads', 'Settings'].includes(page) && (
+          {page === 'Login / OTP' && (
+            <SettingsPage
+              session={session}
+              flash={flash}
+              onSaved={(settings) => setSession({ ...session, settings })}
+            />
+          )}
+
+          {['Farmers', 'Partners & Ads'].includes(page) && (
             <div className="panel">
               <h3>{page}</h3>
               <p style={{ margin: 0, fontSize: 14, color: 'var(--muted)' }}>

@@ -1,0 +1,18 @@
+{
+  "name": "کسان دوست — Kisan Dost",
+  "short_name": "کسان دوست",
+  "description": "فصل کی بیماری پہچانیں، منڈی ریٹ اور موسم",
+  "lang": "ur",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f7f4ec",
+  "theme_color": "#1f5135",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

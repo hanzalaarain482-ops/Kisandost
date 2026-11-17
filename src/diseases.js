@@ -277,6 +277,31 @@ export function matchDisease(apiName = '', apiScientific = '', crop) {
   return pool.find((d) => d.keywords.some((k) => text.includes(k))) || null
 }
 
+// AI ke fasal ke naam se hamari fasal pehchanna
+const CROP_WORDS = {
+  wheat: ['wheat', 'triticum'],
+  cotton: ['cotton', 'gossypium'],
+  rice: ['rice', 'oryza', 'paddy'],
+}
+export function detectCrop(apiCropName = '') {
+  const t = apiCropName.toLowerCase()
+  return Object.keys(CROP_WORDS).find((k) => CROP_WORDS[k].some((w) => t.includes(w))) || null
+}
+
+// Library se bahar ki bimari: AI ka naam dikhayein, ilaaj expert se
+export function genericDisease(apiName) {
+  return {
+    id: 'other_disease',
+    type: 'unknown',
+    name: 'بیماری ملی',
+    english: apiName,
+    severity: 'medium',
+    symptoms: 'یہ بیماری ابھی ہماری لسٹ میں نہیں۔ اس کا علاج ماہر بتائے گا۔',
+    steps: ['متاثرہ پودوں کو الگ نشان لگا دیں', ASK_EXPERT],
+    prevention: '',
+  }
+}
+
 // Bolne ke liye poora paighaam
 export function resultSpeech(d) {
   if (d.id === 'healthy') return `${d.name}۔ ${d.steps.join('۔ ')}`

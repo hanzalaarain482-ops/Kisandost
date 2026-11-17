@@ -8,6 +8,7 @@ import Weather from './screens/Weather.jsx'
 import Help from './screens/Help.jsx'
 import AdminLogin from './admin/AdminLogin.jsx'
 import AdminDashboard from './admin/AdminDashboard.jsx'
+import BottomNav from './BottomNav.jsx'
 import { crops } from './data.js'
 import { stopSpeaking } from './speak.js'
 
@@ -49,25 +50,32 @@ export default function App() {
   }
 
   // ---------- Admin panel: /#admin ----------
-  const [adminIn, setAdminIn] = useState(() => store.get('kd_admin', false))
+  // Admin session sirf is tab tak (sessionStorage) — password local storage mein nahi rakhte
+  const [admin, setAdminState] = useState(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem('kd_admin') || 'null')
+    } catch {
+      return null
+    }
+  })
+  const setAdmin = (a) => {
+    setAdminState(a)
+    try {
+      if (a) sessionStorage.setItem('kd_admin', JSON.stringify(a))
+      else sessionStorage.removeItem('kd_admin')
+    } catch {
+      /* ignore */
+    }
+  }
   if (hash === '#admin') {
-    if (!adminIn)
-      return (
-        <AdminLogin
-          onLogin={() => {
-            setAdminIn(true)
-            store.set('kd_admin', true)
-          }}
-        />
-      )
+    if (!admin) return <AdminLogin onLogin={setAdmin} />
     return (
       <AdminDashboard
         rates={rates}
         setRates={setRates}
-        onLogout={() => {
-          setAdminIn(false)
-          store.set('kd_admin', false)
-        }}
+        session={admin}
+        setSession={setAdmin}
+        onLogout={() => setAdmin(null)}
       />
     )
   }
@@ -95,8 +103,8 @@ function FarmerApp({ rates }) {
       view = (
         <Login
           onBack={() => go('language')}
-          onLogin={(phone) => {
-            const u = { phone }
+          onLogin={(phone, session, via) => {
+            const u = { phone, session, via }
             setUser(u)
             store.set('kd_user', u)
             go('home')
@@ -129,9 +137,11 @@ function FarmerApp({ rates }) {
       )
   }
 
+  const showNav = !['language', 'login'].includes(screen)
   return (
     <div className="app" dir="rtl" lang="ur">
-      {view}
+      <main className="app-body">{view}</main>
+      {showNav && <BottomNav active={screen} go={go} />}
     </div>
   )
 }

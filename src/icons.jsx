@@ -49,6 +49,7 @@ const paths = {
     </>
   ),
   back: <path d="M9 18l6-6-6-6" />,
+  home: <path d="M3 10l9-7 9 7v10a2 2 0 0 1-2 2h-4v-6H9v6H5a2 2 0 0 1-2-2z" />,
   user: (
     <>
       <circle cx="12" cy="8" r="4" />

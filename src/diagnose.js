@@ -1,4 +1,4 @@
-import { diseasesFor, matchDisease, HEALTHY, UNKNOWN } from './diseases.js'
+import { CROPS, detectCrop, diseasesFor, genericDisease, matchDisease, HEALTHY, UNKNOWN } from './diseases.js'
 
 export const REVIEW_BELOW = 0.7 // is se kam yaqeen → expert review
 
@@ -20,23 +20,25 @@ export function loadScans() {
   }
 }
 
-function demoResult(crop) {
-  // Demo: us fasal ki koi bimari, kabhi kabhi sehatmand ya "pata nahi"
+function demoResult(chosenCrop) {
+  // Demo: fasal khud "pehchani" jaati hai (random), phir us ki koi bimari
+  const crop = chosenCrop || CROPS[Math.floor(Math.random() * CROPS.length)].id
   const list = diseasesFor(crop)
   const r = Math.random()
-  if (r < 0.15) return { disease: HEALTHY, confidence: 0.93 }
-  if (r < 0.25) return { disease: UNKNOWN, confidence: 0.48, review: true }
+  if (r < 0.15) return { crop, disease: HEALTHY, confidence: 0.93 }
+  if (r < 0.25) return { crop, disease: UNKNOWN, confidence: 0.48, review: true }
   const d = list[Math.floor(Math.random() * list.length)]
-  return { disease: d, confidence: 0.78 + Math.random() * 0.18 }
+  return { crop, disease: d, confidence: 0.78 + Math.random() * 0.18 }
 }
 
-export async function diagnose({ base64, crop }) {
+// crop = null → fasal bhi AI khud pehchane (auto)
+export async function diagnose({ base64, crop = null }) {
   let api = null
   try {
     const r = await fetch('/api/diagnose', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: base64, crop }),
+      body: JSON.stringify({ image: base64 }),
     })
     if (r.ok && (r.headers.get('content-type') || '').includes('json')) api = await r.json()
   } catch {
@@ -46,23 +48,26 @@ export async function diagnose({ base64, crop }) {
   // Server nahi mila ya key nahi lagi → demo
   if (!api || api.mode !== 'live') {
     await new Promise((res) => setTimeout(res, 1800))
-    return { ...demoResult(crop), mode: 'demo' }
+    return { ...demoResult(crop), mode: 'demo', autoCrop: !crop }
   }
 
-  if (api.healthy === true) return { disease: HEALTHY, confidence: 0.9, mode: 'live' }
+  // --- Asli AI ---
+  const aiCrop = api.crops?.[0]
+  const foundCrop = crop || detectCrop(aiCrop?.name)
+  const base = { mode: 'live', crop: foundCrop, aiCropName: aiCrop?.name || '', autoCrop: !crop }
+
+  if (api.healthy === true) return { ...base, disease: HEALTHY, confidence: 0.9 }
 
   const top = api.diseases?.[0]
-  if (!top) return { disease: UNKNOWN, confidence: 0, review: true, mode: 'live' }
+  if (!top) return { ...base, disease: UNKNOWN, confidence: 0, review: true }
 
-  const match = matchDisease(top.name, top.scientific, crop)
-  if (!match || top.probability < REVIEW_BELOW) {
-    return {
-      disease: UNKNOWN,
-      confidence: top.probability,
-      review: true,
-      aiGuess: top.name,
-      mode: 'live',
-    }
+  if (top.probability < REVIEW_BELOW) {
+    return { ...base, disease: UNKNOWN, confidence: top.probability, review: true, aiGuess: top.name }
   }
-  return { disease: match, confidence: top.probability, mode: 'live' }
+
+  const match = matchDisease(top.name, top.scientific, foundCrop)
+  if (match) return { ...base, crop: foundCrop || match.crop, disease: match, confidence: top.probability }
+
+  // Yaqeen zyada hai lekin bimari hamari library mein nahi → AI ka naam + expert
+  return { ...base, disease: genericDisease(top.name), confidence: top.probability, review: true, aiGuess: top.name }
 }
