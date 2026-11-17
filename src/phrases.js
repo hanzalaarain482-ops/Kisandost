@@ -9,7 +9,7 @@
 //  2. `npm run audio:list` → CSV voice artist ko dein, woh isi ID naam se record kare
 //  3. `npm run audio:google` → Google Cloud TTS se khud-ba-khud MP3 ban jaayein
 // =====================================================================
-import { DISEASES, HEALTHY, UNKNOWN, resultSpeech } from './diseases.js'
+import { DISEASES, HEALTHY, UNKNOWN, SYMPTOMS, NO_LEAF, resultSpeech } from './diseases.js'
 
 export const SCREEN_PHRASES = {
   welcome: 'کسان دوست میں خوش آمدید۔ تصویر لینے کے لیے سبز بٹن دبائیں',
@@ -47,7 +47,7 @@ export const SCREEN_PHRASES = {
 
 // Bimariyon ke paighaam: ID = bimari ki ID (jaise wheat_yellow_rust)
 export const DISEASE_PHRASES = Object.fromEntries(
-  [...DISEASES, HEALTHY, UNKNOWN].map((d) => [d.id, resultSpeech(d)]),
+  [...DISEASES, HEALTHY, UNKNOWN, NO_LEAF, ...Object.values(SYMPTOMS)].map((d) => [d.id, resultSpeech(d)]),
 )
 
 export const ALL_PHRASES = { ...SCREEN_PHRASES, ...DISEASE_PHRASES }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { adminSaveSettings } from '../api.js'
+import { adminChangePassword, adminSaveSettings } from '../api.js'
 
 function Toggle({ label, hint, checked, onChange }) {
   return (
@@ -16,25 +16,31 @@ function Toggle({ label, hint, checked, onChange }) {
 export default function SettingsPage({ session, onSaved, flash }) {
   const [s, setS] = useState(session.settings)
   const [busy, setBusy] = useState(false)
+  const [pw, setPw] = useState({ a: '', b: '' })
   const st = session.status || {}
   const set = (k) => (v) => setS({ ...s, [k]: v })
 
   async function save() {
-    if (!/^\d{4}$/.test(String(s.demoOtpCode))) {
-      flash('Demo code 4 digit ka hona chahiye')
-      return
-    }
+    if (!/^\d{4}$/.test(String(s.demoOtpCode))) return flash('Demo code 4 digit ka hona chahiye')
     setBusy(true)
     const r = await adminSaveSettings(session.password, s, session.server)
     setBusy(false)
     if (r.ok) {
-      onSaved(s)
-      flash(r.local ? 'Save ho gaya (sirf is browser mein — local demo)' : 'Save ho gaya — sab kisanon par lagu')
-    } else if (r.reason === 'no_store') {
-      flash('Save nahi hua: Upstash Redis set nahi (README dekhein)')
-    } else {
-      flash('Save nahi hua, dobara try karein')
-    }
+      onSaved({ settings: s })
+      flash(r.local ? 'Save (sirf is browser mein — local demo)' : 'Save — data/settings.json, sab kisanon par lagu')
+    } else flash('Save nahi hua, dobara try karein')
+  }
+
+  async function changePassword(e) {
+    e.preventDefault()
+    if (pw.a.length < 8) return flash('Password kam az kam 8 characters')
+    if (pw.a !== pw.b) return flash('Dono password ek jaise nahi')
+    const r = await adminChangePassword(session.password, pw.a)
+    if (r.ok) {
+      onSaved({ password: pw.a, status: { ...st, passwordIsDefault: false } })
+      setPw({ a: '', b: '' })
+      flash('Password badal gaya (data/admin.json)')
+    } else flash('Password nahi badla: ' + (r.error || ''))
   }
 
   return (
@@ -43,7 +49,7 @@ export default function SettingsPage({ session, onSaved, flash }) {
         <h3>Login / OTP</h3>
         <Toggle
           label="WhatsApp par OTP bhejein"
-          hint="Kisan ka number daalte hi WhatsApp par 4 digit code jaata hai"
+          hint="WhatsApp keys (env) lagne ke baad kaam karega"
           checked={s.whatsappOtp}
           onChange={set('whatsappOtp')}
         />
@@ -70,7 +76,7 @@ export default function SettingsPage({ session, onSaved, flash }) {
         </label>
         <Toggle
           label="Demo code kisan ko screen par dikhayein"
-          hint="Off ho to button dabane par 'code admin se lein' aata hai — aap khud logon ko code batayein"
+          hint="Off ho to 'code admin se lein' aata hai — aap khud logon ko code batayein"
           checked={s.showDemoCode}
           onChange={set('showDemoCode')}
         />
@@ -78,14 +84,31 @@ export default function SettingsPage({ session, onSaved, flash }) {
       </div>
 
       <div className="panel">
-        <h3>Connection status</h3>
+        <h3>Admin password</h3>
+        {!session.server ? (
+          <p className="muted" style={{ margin: 0 }}>Local demo mein password `admin123` hai. Server (`npm start`) par yahan se badal sakte hain.</p>
+        ) : (
+          <form onSubmit={changePassword} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {st.passwordIsDefault && <div className="warn-box">Abhi default password chal raha hai — badlein.</div>}
+            <label className="muted">Naya password
+              <input className="rate" style={{ width: '100%' }} type="password" autoComplete="new-password" value={pw.a} onChange={(e) => setPw({ ...pw, a: e.target.value })} />
+            </label>
+            <label className="muted">Dobara likhein
+              <input className="rate" style={{ width: '100%' }} type="password" autoComplete="new-password" value={pw.b} onChange={(e) => setPw({ ...pw, b: e.target.value })} />
+            </label>
+            <div><button type="submit" className="btn">Password badlein</button></div>
+          </form>
+        )}
+      </div>
+
+      <div className="panel">
+        <h3>Status</h3>
         <div className="src-row"><span>Server</span>{session.server ? <span className="tag ok">Connected</span> : <span className="tag review">Local demo</span>}</div>
-        <div className="src-row"><span>WhatsApp Cloud API</span>{st.whatsappConfigured ? <span className="tag ok">Configured</span> : <span className="tag review">Not set</span>}</div>
-        <div className="src-row"><span>Settings store (Upstash)</span>{st.storeAvailable ? <span className="tag ok">Connected</span> : <span className="tag review">Not set</span>}</div>
+        <div className="src-row"><span>Storage</span><span className="tag ok">{session.server ? 'Files (data/)' : 'Browser'}</span></div>
+        {st.dataDir && <div className="src-row"><span>Folder</span><code style={{ fontSize: 12 }}>{st.dataDir}</code></div>}
+        <div className="src-row"><span>WhatsApp Cloud API</span>{st.whatsappConfigured ? <span className="tag ok">Configured</span> : <span className="tag review">Keys baad mein</span>}</div>
         <p className="muted" style={{ margin: 0 }}>
-          WhatsApp ke liye Vercel env vars: <code>WHATSAPP_TOKEN</code>, <code>WHATSAPP_PHONE_ID</code>,{' '}
-          <code>WHATSAPP_TEMPLATE</code>. Admin control save karne ke liye: <code>UPSTASH_REDIS_REST_URL</code>,{' '}
-          <code>UPSTASH_REDIS_REST_TOKEN</code>. Tafseel README mein.
+          WhatsApp ke liye baad mein env: <code>WHATSAPP_TOKEN</code>, <code>WHATSAPP_PHONE_ID</code>, <code>WHATSAPP_TEMPLATE</code>.
         </p>
       </div>
     </div>

@@ -10,6 +10,7 @@ import AdminLogin from './admin/AdminLogin.jsx'
 import AdminDashboard from './admin/AdminDashboard.jsx'
 import BottomNav from './BottomNav.jsx'
 import { crops } from './data.js'
+import { fetchRates } from './api.js'
 import { stopSpeaking } from './speak.js'
 
 // Chhota sa localStorage helper (kuch browsers mein band hota hai, is liye try/catch)
@@ -48,6 +49,16 @@ export default function App() {
     setRatesState(r)
     store.set('kd_rates', r)
   }
+
+  // Server par admin ke rakhe rates (data/rates.json) — mil jaayein to wahi
+  useEffect(() => {
+    fetchRates().then((d) => {
+      if (d?.rates?.length) {
+        setRatesState(d.rates)
+        store.set('kd_rates', d.rates)
+      }
+    })
+  }, [])
 
   // ---------- Admin panel: /#admin ----------
   // Admin session sirf is tab tak (sessionStorage) — password local storage mein nahi rakhte

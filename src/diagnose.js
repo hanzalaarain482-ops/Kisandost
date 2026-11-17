@@ -1,9 +1,17 @@
-import { CROPS, detectCrop, diseasesFor, genericDisease, matchDisease, HEALTHY, UNKNOWN } from './diseases.js'
+// =====================================================================
+// PHOTO KA FAISLA — sab kuch phone par, kisi ki API nahi
+//  1) Apna AI model (public/model) ho → us se bimari + fasal
+//  2) Model na ho / yaqeen kam → rang ki jaanch (color.js) se "alamat" + mumkina bimariyan
+// Har scan server par photo ke saath save hota hai (data/) → expert label → model training
+// =====================================================================
+import { DISEASES, HEALTHY, NO_LEAF, SYMPTOMS, candidatesFor } from './diseases.js'
+import { analyzeColors, colorVerdict } from './analyzer/color.js'
+import { predict } from './analyzer/model.js'
 
 export const REVIEW_BELOW = 0.7 // is se kam yaqeen → expert review
 
-// Scans ki history (demo mein isi browser mein). Asli app mein database mein jaayegi.
-export function saveScan(scan) {
+// --- Local history (server na ho to admin isi browser mein dekh sake) ---
+export function saveScanLocal(scan) {
   try {
     const all = JSON.parse(localStorage.getItem('kd_scans') || '[]')
     all.unshift(scan)
@@ -20,54 +28,58 @@ export function loadScans() {
   }
 }
 
-function demoResult(chosenCrop) {
-  // Demo: fasal khud "pehchani" jaati hai (random), phir us ki koi bimari
-  const crop = chosenCrop || CROPS[Math.floor(Math.random() * CROPS.length)].id
-  const list = diseasesFor(crop)
-  const r = Math.random()
-  if (r < 0.15) return { crop, disease: HEALTHY, confidence: 0.93 }
-  if (r < 0.25) return { crop, disease: UNKNOWN, confidence: 0.48, review: true }
-  const d = list[Math.floor(Math.random() * list.length)]
-  return { crop, disease: d, confidence: 0.78 + Math.random() * 0.18 }
-}
-
-// crop = null → fasal bhi AI khud pehchane (auto)
-export async function diagnose({ base64, crop = null }) {
-  let api = null
+// --- Server par photo + nateeja bhejna (training data) ---
+export async function uploadScan(payload) {
   try {
-    const r = await fetch('/api/diagnose', {
+    const r = await fetch('/api/scans', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: base64 }),
+      body: JSON.stringify(payload),
     })
-    if (r.ok && (r.headers.get('content-type') || '').includes('json')) api = await r.json()
+    return r.ok && (r.headers.get('content-type') || '').includes('json')
   } catch {
-    api = null
+    return false
+  }
+}
+
+function fromModelLabel(label) {
+  if (label.startsWith('healthy')) return { disease: HEALTHY, crop: label.split('_')[1] || null }
+  const d = DISEASES.find((x) => x.id === label)
+  return d ? { disease: d, crop: d.crop } : null
+}
+
+// crop = null → model fasal khud pehchane
+export async function diagnose({ img, crop = null }) {
+  // 1) Apna model
+  let top = null
+  try {
+    const preds = await predict(img)
+    top = preds?.[0] || null
+  } catch {
+    top = null
+  }
+  if (top && top.p >= REVIEW_BELOW) {
+    const m = fromModelLabel(top.label)
+    if (m && (!crop || !m.crop || m.crop === crop)) {
+      return { method: 'model', disease: m.disease, crop: crop || m.crop, confidence: top.p, autoCrop: !crop }
+    }
   }
 
-  // Server nahi mila ya key nahi lagi → demo
-  if (!api || api.mode !== 'live') {
-    await new Promise((res) => setTimeout(res, 1800))
-    return { ...demoResult(crop), mode: 'demo', autoCrop: !crop }
+  // 2) Rang ki jaanch
+  const colors = analyzeColors(img)
+  const v = colorVerdict(colors)
+  const base = { method: 'color', colors, crop, autoCrop: false }
+
+  if (v.symptom === 'no_leaf') return { ...base, disease: NO_LEAF, confidence: 0, retake: true }
+  if (v.symptom === 'healthy') return { ...base, disease: HEALTHY, confidence: v.score }
+
+  const sym = SYMPTOMS[v.symptom]
+  return {
+    ...base,
+    disease: sym,
+    candidates: candidatesFor(sym, crop),
+    confidence: v.score,
+    review: true, // rang ki jaanch hamesha expert bhi dekhe
+    modelGuess: top ? top.label : null,
   }
-
-  // --- Asli AI ---
-  const aiCrop = api.crops?.[0]
-  const foundCrop = crop || detectCrop(aiCrop?.name)
-  const base = { mode: 'live', crop: foundCrop, aiCropName: aiCrop?.name || '', autoCrop: !crop }
-
-  if (api.healthy === true) return { ...base, disease: HEALTHY, confidence: 0.9 }
-
-  const top = api.diseases?.[0]
-  if (!top) return { ...base, disease: UNKNOWN, confidence: 0, review: true }
-
-  if (top.probability < REVIEW_BELOW) {
-    return { ...base, disease: UNKNOWN, confidence: top.probability, review: true, aiGuess: top.name }
-  }
-
-  const match = matchDisease(top.name, top.scientific, foundCrop)
-  if (match) return { ...base, crop: foundCrop || match.crop, disease: match, confidence: top.probability }
-
-  // Yaqeen zyada hai lekin bimari hamari library mein nahi → AI ka naam + expert
-  return { ...base, disease: genericDisease(top.name), confidence: top.probability, review: true, aiGuess: top.name }
 }

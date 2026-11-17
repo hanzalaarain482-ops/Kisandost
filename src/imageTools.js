@@ -76,5 +76,5 @@ export async function preparePhoto(file) {
   if (q.brightness < LIMITS.dark) problem = 'dark'
   else if (q.brightness > LIMITS.bright) problem = 'bright'
   else if (q.sharpness < LIMITS.blurry) problem = 'blurry'
-  return { previewUrl: url, base64: toJpeg(img), quality: q, problem }
+  return { previewUrl: url, img, base64: toJpeg(img), quality: q, problem }
 }

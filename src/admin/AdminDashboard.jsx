@@ -1,66 +1,63 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import VoicePage from './VoicePage.jsx'
 import LibraryPage from './LibraryPage.jsx'
 import SettingsPage from './SettingsPage.jsx'
+import ReviewPage from './ReviewPage.jsx'
+import { labelName } from './labels.js'
 import { loadScans, REVIEW_BELOW as REVIEW_P } from '../diagnose.js'
+import { adminSaveRates, adminScans } from '../api.js'
 
-// DEMO data — asli data database se aayega
-const demoScans = [
-  { farmer: 'Rahim Khan', district: 'Sahiwal', crop: 'Wheat', result: 'Yellow Rust', conf: 92 },
-  { farmer: 'Ghulam Abbas', district: 'Multan', crop: 'Cotton', result: 'Leaf Curl Virus', conf: 88 },
-  { farmer: 'Bashir Ahmed', district: 'Okara', crop: 'Rice', result: 'Unclear', conf: 54 },
-  { farmer: 'Nazir Hussain', district: 'Vehari', crop: 'Cotton', result: 'Whitefly damage', conf: 81 },
-  { farmer: 'Asif Jutt', district: 'Faisalabad', crop: 'Wheat', result: 'Aphid', conf: 47 },
-]
-const districts = [
-  ['Sahiwal', 184], ['Multan', 147], ['Okara', 109], ['Vehari', 82], ['Faisalabad', 60],
-]
-const sources = [
-  ['Crop disease AI model', 'Model v1 · accuracy: [test karke likhein]', true],
-  ['Mandi rates (govt data + local reporters)', 'Updated 08:30 today', true],
-  ['Weather API (per district)', 'Every 3 hours', true],
-  ['Expert review queue', '14 pending', false],
-  ['Treatment library (expert verified)', '3 crops', true],
-]
-
-const menu = ['Dashboard', 'Expert Review', 'Disease Library', 'Voice', 'Mandi Rates', 'Login / OTP', 'Farmers', 'Partners & Ads']
-const REVIEW_BELOW = Math.round(REVIEW_P * 100) // is % se kam AI confidence → expert check karega
+const menu = ['Dashboard', 'Expert Review', 'Disease Library', 'Voice', 'Mandi Rates', 'Settings']
+const REVIEW_BELOW = Math.round(REVIEW_P * 100)
 const cropEn = { wheat: 'Wheat', cotton: 'Cotton', rice: 'Rice' }
 
 export default function AdminDashboard({ rates, setRates, onLogout, session, setSession }) {
   const [page, setPage] = useState('Dashboard')
-  // Is phone/browser par kiye gaye asli scans + demo scans
-  const scans = [
-    ...loadScans().map((s) => ({
-      farmer: 'Ye device · ' + new Date(s.at).toLocaleTimeString(),
-      district: '—',
-      crop: cropEn[s.crop] || s.crop,
-      result: s.review ? (s.aiGuess || 'Unclear') : s.name,
-      conf: s.confidence,
-      review: s.review,
-      mode: s.mode,
-    })),
-    ...demoScans,
-  ].slice(0, 8)
   const [toast, setToast] = useState('')
   const [draft, setDraft] = useState(() => Object.fromEntries(rates.map((r) => [r.id, r.price])))
+  const [server, setServer] = useState(null) // { scans, farmersCount, labeledCount }
 
-  function flash(msg) {
+  const flash = useCallback((msg) => {
     setToast(msg)
-    setTimeout(() => setToast(''), 2200)
+    setTimeout(() => setToast(''), 2600)
+  }, [])
+
+  const refresh = useCallback(async () => {
+    if (!session.server) return
+    const data = await adminScans(session.password)
+    if (data) setServer(data)
+  }, [session])
+
+  useEffect(() => {
+    refresh()
+  }, [refresh])
+
+  // Server ho to wahan ke scans, warna isi browser ke
+  const scans = server
+    ? server.scans
+    : loadScans().map((s, i) => ({ ...s, id: 'local' + i, phone: null, photo: null }))
+
+  async function saveRates() {
+    const next = rates.map((r) => {
+      const p = Number(draft[r.id]) || r.price
+      return { ...r, price: p, change: p > r.price ? 'up' : p < r.price ? 'down' : 'same' }
+    })
+    if (session.server) {
+      const ok = await adminSaveRates(session.password, next)
+      if (!ok) return flash('Save nahi hua, dobara try karein')
+    }
+    setRates(next)
+    flash(session.server ? 'Rates save — data/rates.json, sab kisanon ko nazar aayenge' : 'Rates save (sirf is browser mein)')
   }
 
-  function saveRates() {
-    setRates(
-      rates.map((r) => {
-        const p = Number(draft[r.id]) || r.price
-        return { ...r, price: p, change: p > r.price ? 'up' : p < r.price ? 'down' : 'same' }
-      }),
-    )
-    flash('Rates save ho gaye — farmer app mein update ho gaye')
+  const pending = scans.filter((s) => s.review && !s.expertLabel)
+  const byDisease = {}
+  for (const s of scans) {
+    const k = s.expertLabel || s.disease
+    if (k && !k.startsWith('healthy')) byDisease[k] = (byDisease[k] || 0) + 1
   }
-
-  const max = Math.max(...districts.map((d) => d[1]))
+  const top = Object.entries(byDisease).sort((a, b) => b[1] - a[1]).slice(0, 6)
+  const max = Math.max(1, ...top.map((t) => t[1]))
 
   return (
     <div className="admin">
@@ -70,6 +67,9 @@ export default function AdminDashboard({ rates, setRates, onLogout, session, set
           {menu.map((m) => (
             <button type="button" key={m} className={page === m ? 'on' : ''} onClick={() => setPage(m)}>
               {m}
+              {m === 'Expert Review' && pending.length > 0 && (
+                <span className="pill" style={{ marginLeft: 8 }}>{pending.length}</span>
+              )}
             </button>
           ))}
           <button type="button" onClick={onLogout} style={{ marginTop: 'auto' }}>Logout</button>
@@ -79,94 +79,100 @@ export default function AdminDashboard({ rates, setRates, onLogout, session, set
         <main className="admin-main">
           <div className="admin-top">
             <h2>
-              {page} <span className="pill">Demo data</span>
+              {page}{' '}
+              <span className="pill">{session.server ? 'Server · data/ files' : 'Local demo · is browser mein'}</span>
             </h2>
-            <span style={{ fontSize: 13, color: 'var(--muted)' }}>Punjab · Last 7 days</span>
+            {session.server && <button type="button" className="btn" onClick={refresh}>↻ Refresh</button>}
           </div>
+
+          {session.status?.passwordIsDefault && (
+            <div className="warn-box">
+              ⚠ Admin password abhi default (admin123) hai. <b>Settings</b> mein ja kar foran badlein.
+            </div>
+          )}
 
           {page === 'Dashboard' && (
             <>
               <div className="kpis">
-                <div className="kpi"><small>Registered farmers</small><strong>12,480</strong><em>+640 this week</em></div>
-                <div className="kpi"><small>Crop scans today</small><strong>1,932</strong><em>+12% vs yesterday</em></div>
-                <div className="kpi"><small>Disease alerts active</small><strong>7</strong><em style={{ color: 'var(--red)' }}>2 new districts</em></div>
-                <div className="kpi"><small>Premium subscribers</small><strong>318</strong><em>Rs 300/month</em></div>
+                <div className="kpi"><small>Registered farmers</small><strong>{server ? server.farmersCount : '—'}</strong><em>login karne wale</em></div>
+                <div className="kpi"><small>Total scans</small><strong>{scans.length}</strong><em>photos save</em></div>
+                <div className="kpi"><small>Expert review pending</small><strong>{pending.length}</strong><em style={{ color: pending.length ? 'var(--red)' : undefined }}>photo dekh kar label lagayein</em></div>
+                <div className="kpi"><small>Labeled photos (training)</small><strong>{server ? server.labeledCount : '—'}</strong><em>model training ke liye</em></div>
               </div>
 
               <div className="panels">
                 <div className="panel">
                   <h3>Recent scans</h3>
-                  <div className="table-box">
-                    <table>
-                      <thead>
-                        <tr><th>Farmer</th><th>District</th><th>Crop</th><th>AI result</th><th>Conf.</th><th>Status</th></tr>
-                      </thead>
-                      <tbody>
-                        {scans.map((s) => (
-                          <tr key={s.farmer + s.result}>
-                            <td>{s.farmer}</td><td>{s.district}</td><td>{s.crop}</td><td>{s.result}</td><td>{s.conf}%</td>
-                            <td>
-                              {s.review || s.conf < REVIEW_BELOW
-                                ? <span className="tag review">Expert review</span>
-                                : <span className="tag ok">Auto-sent</span>}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  {scans.length === 0 ? (
+                    <p className="muted" style={{ margin: 0 }}>Abhi koi scan nahi. Farmer app mein photo check karein.</p>
+                  ) : (
+                    <div className="table-box">
+                      <table>
+                        <thead>
+                          <tr><th></th><th>Time</th><th>Phone</th><th>Crop</th><th>Result</th><th>Conf.</th><th>Method</th><th>Status</th></tr>
+                        </thead>
+                        <tbody>
+                          {scans.slice(0, 12).map((s) => (
+                            <tr key={s.id}>
+                              <td>{s.photo ? <img className="scan-thumb" src={s.photo} alt="" /> : null}</td>
+                              <td>{new Date(s.at).toLocaleString()}</td>
+                              <td>{s.phone ? '0' + s.phone.slice(2) : '—'}</td>
+                              <td>{cropEn[s.crop] || '—'}</td>
+                              <td>{labelName(s.expertLabel || s.disease)}</td>
+                              <td>{s.confidence}%</td>
+                              <td>{s.method === 'model' ? 'AI model' : 'Color'}</td>
+                              <td>
+                                {s.expertLabel ? (
+                                  <span className="tag ok">Expert ✓</span>
+                                ) : s.review || s.confidence < REVIEW_BELOW ? (
+                                  <span className="tag review">Review</span>
+                                ) : (
+                                  <span className="tag ok">Auto</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
 
                 <div className="panel">
-                  <h3>Disease reports by district</h3>
-                  {districts.map(([d, n]) => (
-                    <div className="bar" key={d}>
-                      <span>{d}</span>
+                  <h3>Sab se zyada mili bimariyan</h3>
+                  {top.length === 0 && <p className="muted" style={{ margin: 0 }}>Abhi data nahi.</p>}
+                  {top.map(([d, n]) => (
+                    <div className="bar" key={d} style={{ gridTemplateColumns: '150px 1fr 40px' }}>
+                      <span>{labelName(d)}</span>
                       <div style={{ width: (n / max) * 100 + '%' }} />
                       <span>{n}</span>
                     </div>
                   ))}
-                  <div className="notice">
-                    <span>⚠ Yellow Rust spike in Sahiwal. Send a voice alert to farmers in this district?</span>
-                    <button type="button" className="btn red" onClick={() => flash('Alert bhej diya gaya (demo)')}>Send alert</button>
-                  </div>
                 </div>
 
                 <div className="panel">
-                  <h3>Data sources</h3>
-                  {sources.map(([name, info, ok]) => (
-                    <div key={name} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 13, padding: '8px 0', borderBottom: '1px solid #f0eee7' }}>
-                      <span>
-                        <i style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: ok ? '#2e9e5b' : 'var(--wheat)', marginRight: 8 }} />
-                        {name}
-                      </span>
-                      <span style={{ color: 'var(--muted)' }}>{info}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="panel">
-                  <h3>Partners & revenue</h3>
-                  <div className="table-box">
-                    <table>
-                      <thead><tr><th>Partner</th><th>Type</th><th>Impressions</th><th>Leads</th></tr></thead>
-                      <tbody>
-                        <tr><td>[Fertilizer company]</td><td>Sponsored tip</td><td>48,200</td><td>1,120</td></tr>
-                        <tr><td>[Seed company]</td><td>Dealer listing</td><td>21,700</td><td>640</td></tr>
-                        <tr><td>[Pesticide brand]</td><td>Treatment ad</td><td>33,900</td><td>870</td></tr>
-                      </tbody>
-                    </table>
-                  </div>
+                  <h3>Data kahan save ho raha hai</h3>
+                  <div className="src-row"><span>Storage</span><span className="tag ok">{session.server ? 'Files' : 'Browser (demo)'}</span></div>
+                  {session.status?.dataDir && <div className="src-row"><span>Folder</span><code style={{ fontSize: 12 }}>{session.status.dataDir}</code></div>}
+                  <div className="src-row"><span>Photo analyzer</span><span className="tag ok">Apna (phone par)</span></div>
+                  <div className="src-row"><span>WhatsApp OTP</span>{session.status?.whatsappConfigured ? <span className="tag ok">On</span> : <span className="tag review">Keys baad mein</span>}</div>
+                  <p className="muted" style={{ margin: 0 }}>
+                    Files: settings.json, admin.json, rates.json, farmers.json, scans.json, labels.json, uploads/
+                  </p>
                 </div>
               </div>
             </>
+          )}
+
+          {page === 'Expert Review' && (
+            <ReviewPage session={session} scans={scans} onChanged={refresh} flash={flash} />
           )}
 
           {page === 'Mandi Rates' && (
             <div className="panel" style={{ maxWidth: 640 }}>
               <h3>Aaj ke rates update karein (per 40 kg, Rs)</h3>
               <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>
-                Save karte hi farmer app mein naye rates nazar aayenge (is demo mein isi browser mein).
+                {session.server ? 'data/rates.json mein save hote hain — sab kisanon ko nazar aate hain.' : 'Local demo: sirf is browser mein.'}
               </p>
               <div className="table-box">
                 <table>
@@ -181,7 +187,7 @@ export default function AdminDashboard({ rates, setRates, onLogout, session, set
                             className="rate"
                             type="number"
                             aria-label={'New rate for ' + r.id}
-                            value={draft[r.id]}
+                            value={draft[r.id] ?? ''}
                             onChange={(e) => setDraft({ ...draft, [r.id]: e.target.value })}
                           />
                         </td>
@@ -194,44 +200,14 @@ export default function AdminDashboard({ rates, setRates, onLogout, session, set
             </div>
           )}
 
-          {page === 'Expert Review' && (
-            <div className="panel">
-              <h3>Scans waiting for an expert (AI confidence below {REVIEW_BELOW}%)</h3>
-              <div className="table-box">
-                <table>
-                  <thead><tr><th>Farmer</th><th>District</th><th>Crop</th><th>AI guess</th><th>Conf.</th><th></th></tr></thead>
-                  <tbody>
-                    {scans.filter((s) => s.review || s.conf < REVIEW_BELOW).map((s) => (
-                      <tr key={s.farmer + s.result}>
-                        <td>{s.farmer}</td><td>{s.district}</td><td>{s.crop}</td><td>{s.result}</td><td>{s.conf}%</td>
-                        <td><button type="button" className="btn" onClick={() => flash('Expert ka jawab kisan ko bhej diya (demo)')}>Answer</button></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
           {page === 'Disease Library' && <LibraryPage />}
-
           {page === 'Voice' && <VoicePage flash={flash} />}
-
-          {page === 'Login / OTP' && (
+          {page === 'Settings' && (
             <SettingsPage
               session={session}
               flash={flash}
-              onSaved={(settings) => setSession({ ...session, settings })}
+              onSaved={(patch) => setSession({ ...session, ...patch })}
             />
-          )}
-
-          {['Farmers', 'Partners & Ads'].includes(page) && (
-            <div className="panel">
-              <h3>{page}</h3>
-              <p style={{ margin: 0, fontSize: 14, color: 'var(--muted)' }}>
-                Yeh section backend (database) lagne ke baad banega.
-              </p>
-            </div>
           )}
         </main>
       </div>

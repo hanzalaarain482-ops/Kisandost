@@ -1,67 +1,74 @@
-// Server ke shared helpers (Vercel: `_` se shuru hone wali file route nahi banti)
+// Server ke shared helpers (`_` se shuru hone wali file route nahi banti)
 import crypto from 'node:crypto'
+import { readJson, update, writeJson } from './_store.js'
 
-// ---------- Settings (admin control) ----------
-// Admin panel se badalne wali settings. Upstash Redis (free) mein save hoti hain:
-//   UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN
-// Upstash na ho to env vars se default milte hain (tab admin se save nahi hota).
+// ---------- Settings (admin control) — data/settings.json ----------
 export const DEFAULT_SETTINGS = {
-  whatsappOtp: true, // WhatsApp par OTP bhejna
-  demoOtpEnabled: (process.env.DEMO_OTP_ENABLED ?? 'true') === 'true', // demo code chalega?
-  demoOtpCode: process.env.DEMO_OTP_CODE || '1234',
-  showDemoCode: (process.env.SHOW_DEMO_CODE ?? 'true') === 'true', // kisan ko screen par dikhaye?
-}
-
-const KEY = 'kd_settings'
-const hasStore = () => !!(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
-
-async function redis(cmd) {
-  const r = await fetch(process.env.UPSTASH_REDIS_REST_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(cmd),
-  })
-  if (!r.ok) throw new Error('store error ' + r.status)
-  return (await r.json()).result
+  whatsappOtp: true, // WhatsApp par OTP bhejna (keys lagne ke baad)
+  demoOtpEnabled: true, // demo code chalega?
+  demoOtpCode: '1234',
+  showDemoCode: true, // kisan ko screen par dikhaye?
 }
 
 export async function getSettings() {
-  if (!hasStore()) return { ...DEFAULT_SETTINGS }
-  try {
-    const raw = await redis(['GET', KEY])
-    return { ...DEFAULT_SETTINGS, ...(raw ? JSON.parse(raw) : {}) }
-  } catch {
-    return { ...DEFAULT_SETTINGS }
-  }
+  return { ...DEFAULT_SETTINGS, ...readJson('settings.json', {}) }
 }
 
 export async function saveSettings(s) {
-  if (!hasStore()) return false
-  await redis(['SET', KEY, JSON.stringify(s)])
+  writeJson('settings.json', s)
   return true
 }
 
-export function storeAvailable() {
-  return hasStore()
+// ---------- Admin password — data/admin.json (hash, kabhi saaf text nahi) ----------
+export const DEFAULT_ADMIN_PASSWORD = 'admin123'
+
+function hashPassword(pass, salt = crypto.randomBytes(16).toString('hex')) {
+  const hash = crypto.scryptSync(String(pass), salt, 32).toString('hex')
+  return { salt, hash }
 }
 
-// ---------- Admin auth ----------
-export function isAdmin(req) {
-  const pass = process.env.ADMIN_PASSWORD
-  if (!pass) return false
-  const h = req.headers.authorization || ''
-  const given = h.startsWith('Bearer ') ? h.slice(7) : ''
-  const a = Buffer.from(given)
-  const b = Buffer.from(pass)
+function adminRecord() {
+  const rec = readJson('admin.json', null)
+  if (rec?.hash) return rec
+  // Pehli dafa: env ADMIN_PASSWORD ya default
+  const created = { ...hashPassword(process.env.ADMIN_PASSWORD || DEFAULT_ADMIN_PASSWORD), isDefault: !process.env.ADMIN_PASSWORD }
+  writeJson('admin.json', created)
+  return created
+}
+
+export function checkPassword(pass) {
+  const rec = adminRecord()
+  const { hash } = hashPassword(pass || '', rec.salt)
+  const a = Buffer.from(hash, 'hex')
+  const b = Buffer.from(rec.hash, 'hex')
   return a.length === b.length && crypto.timingSafeEqual(a, b)
 }
 
-// ---------- OTP (database ke baghair, signed token se) ----------
-const secret = () => process.env.OTP_SECRET || 'change-me-in-vercel-env'
-const sign = (s) => crypto.createHmac('sha256', secret()).update(s).digest('hex')
+export function setPassword(pass) {
+  writeJson('admin.json', { ...hashPassword(pass), isDefault: false, changedAt: new Date().toISOString() })
+}
+
+export function passwordIsDefault() {
+  return !!adminRecord().isDefault
+}
+
+export function isAdmin(req) {
+  const h = req.headers.authorization || ''
+  const given = h.startsWith('Bearer ') ? h.slice(7) : ''
+  return !!given && checkPassword(given)
+}
+
+// ---------- Signing (OTP token, photo links) ----------
+function secret() {
+  if (process.env.OTP_SECRET) return process.env.OTP_SECRET
+  // Env na ho to ek random secret bana kar file mein rakh lete hain
+  const rec = readJson('secret.json', null)
+  if (rec?.secret) return rec.secret
+  const s = crypto.randomBytes(32).toString('hex')
+  writeJson('secret.json', { secret: s })
+  return s
+}
+export const sign = (s) => crypto.createHmac('sha256', secret()).update(s).digest('hex')
 
 export function makeOtpToken(phone, code, minutes = 5) {
   const exp = Date.now() + minutes * 60 * 1000
@@ -84,6 +91,10 @@ export function makeSession(phone, days = 90) {
   return Buffer.from(`${phone}|${exp}|${sign(`session|${phone}|${exp}`)}`).toString('base64url')
 }
 
+export function photoSig(file) {
+  return sign('photo|' + file).slice(0, 32)
+}
+
 // 03001234567 → 923001234567
 export function normalizePhone(p = '') {
   const d = String(p).replace(/\D/g, '')
@@ -96,6 +107,22 @@ export function randomCode(len = 4) {
   return String(crypto.randomInt(0, 10 ** len)).padStart(len, '0')
 }
 
+export function newId() {
+  return Date.now().toString(36) + crypto.randomBytes(4).toString('hex')
+}
+
+// ---------- Kisan record — data/farmers.json ----------
+export function recordFarmer(phone, via) {
+  return update('farmers.json', [], (list) => {
+    const now = new Date().toISOString()
+    const i = list.findIndex((f) => f.phone === phone)
+    if (i >= 0) list[i] = { ...list[i], lastLogin: now, logins: (list[i].logins || 1) + 1, via }
+    else list.push({ phone, firstLogin: now, lastLogin: now, logins: 1, via })
+    return list
+  })
+}
+
+// ---------- WhatsApp (keys baad mein env mein) ----------
 export function whatsappConfigured() {
   return !!(process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_ID && process.env.WHATSAPP_TEMPLATE)
 }

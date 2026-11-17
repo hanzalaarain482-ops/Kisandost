@@ -1,8 +1,9 @@
 // GET  /api/settings                → public settings (kisan app ke liye)
-// GET  /api/settings  + admin auth  → poori settings (admin panel)
-// POST /api/settings  + admin auth  → save
-// Admin auth: header  Authorization: Bearer <ADMIN_PASSWORD>
-import { getSettings, isAdmin, saveSettings, storeAvailable, whatsappConfigured } from './_lib.js'
+// GET  /api/settings  + admin auth  → poori settings + status (admin panel)
+// POST /api/settings  + admin auth  → data/settings.json mein save
+// Admin auth: header  Authorization: Bearer <admin password>
+import { getSettings, isAdmin, passwordIsDefault, saveSettings, whatsappConfigured } from './_lib.js'
+import { DATA_DIR } from './_store.js'
 
 export default async function handler(req, res) {
   const s = await getSettings()
@@ -13,7 +14,12 @@ export default async function handler(req, res) {
       return res.status(200).json({
         admin: true,
         settings: s,
-        status: { whatsappConfigured: whatsappConfigured(), storeAvailable: storeAvailable() },
+        status: {
+          whatsappConfigured: whatsappConfigured(),
+          storage: 'files',
+          dataDir: DATA_DIR,
+          passwordIsDefault: passwordIsDefault(),
+        },
       })
     }
     if (req.headers.authorization) return res.status(401).json({ admin: false })
@@ -33,8 +39,7 @@ export default async function handler(req, res) {
       showDemoCode: !!b.showDemoCode,
       demoOtpCode: /^\d{4}$/.test(String(b.demoOtpCode)) ? String(b.demoOtpCode) : s.demoOtpCode,
     }
-    const saved = await saveSettings(next)
-    if (!saved) return res.status(503).json({ error: 'no_store', settings: next })
+    await saveSettings(next)
     return res.status(200).json({ ok: true, settings: next })
   }
 

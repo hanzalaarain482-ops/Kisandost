@@ -264,6 +264,7 @@ export const typeLabel = {
   bacteria: 'بیکٹیریا',
   healthy: 'صحت مند',
   unknown: '',
+  symptom: 'ابتدائی جانچ',
 }
 
 export function diseasesFor(crop) {
@@ -275,6 +276,72 @@ export function matchDisease(apiName = '', apiScientific = '', crop) {
   const text = (apiName + ' ' + apiScientific).toLowerCase()
   const pool = crop ? [...diseasesFor(crop), ...DISEASES] : DISEASES
   return pool.find((d) => d.keywords.some((k) => text.includes(k))) || null
+}
+
+// =====================================================================
+// RANG KI JAANCH ke nateeje (jab AI model na ho) — "alamat" + mumkina bimariyan
+// =====================================================================
+export const SYMPTOMS = {
+  rust: {
+    id: 'sym_rust',
+    type: 'symptom',
+    name: 'نارنجی / بھورے دانے',
+    english: 'Rust-like pustules',
+    severity: 'high',
+    symptoms: 'پتوں پر نارنجی یا بھورے رنگ کے دانے نظر آئے۔ یہ کنگی کی نشانی ہو سکتی ہے۔',
+    steps: ['دانوں کو انگلی سے رگڑیں، پاؤڈر لگے تو کنگی ہے', ASK_EXPERT, 'آپ کی تصویر ماہر کو بھی بھیج دی گئی ہے'],
+    candidates: {
+      wheat: ['wheat_brown_rust', 'wheat_yellow_rust'],
+      rice: ['rice_brown_spot'],
+      cotton: [],
+    },
+  },
+  yellowing: {
+    id: 'sym_yellowing',
+    type: 'symptom',
+    name: 'پتوں پر پیلاہٹ',
+    english: 'Yellowing',
+    severity: 'medium',
+    symptoms: 'پتے کافی حد تک پیلے ہیں۔ یہ بیماری، کیڑے یا کھاد کی کمی سے ہو سکتا ہے۔',
+    steps: ['پتوں کی نچلی طرف کیڑے دیکھیں', 'دیکھیں پیلی دھاریاں ہیں یا پورا پتا پیلا ہے', ASK_EXPERT],
+    candidates: {
+      wheat: ['wheat_yellow_rust', 'wheat_aphid'],
+      cotton: ['cotton_leaf_curl', 'cotton_jassid', 'cotton_whitefly'],
+      rice: ['rice_blb'],
+    },
+  },
+  spots: {
+    id: 'sym_spots',
+    type: 'symptom',
+    name: 'پتوں پر دھبے',
+    english: 'Leaf spots',
+    severity: 'medium',
+    symptoms: 'پتوں پر بھورے یا کالے دھبے نظر آئے۔ یہ پھپھوندی کی بیماری ہو سکتی ہے۔',
+    steps: ['دیکھیں دھبے بڑھ تو نہیں رہے', ASK_EXPERT, 'آپ کی تصویر ماہر کو بھی بھیج دی گئی ہے'],
+    candidates: {
+      wheat: ['wheat_brown_rust', 'wheat_loose_smut'],
+      cotton: [],
+      rice: ['rice_brown_spot', 'rice_blast'],
+    },
+  },
+}
+
+export const NO_LEAF = {
+  id: 'sym_no_leaf',
+  type: 'unknown',
+  name: 'پتا صاف نظر نہیں آیا',
+  english: 'Leaf not visible',
+  severity: 'unknown',
+  symptoms: 'تصویر میں پتا کم نظر آ رہا ہے۔ پتے کے بالکل قریب جا کر دوبارہ تصویر لیں۔',
+  steps: ['ایک بیمار پتا ہاتھ میں پکڑیں', 'فون کو پتے کے قریب لا کر تصویر لیں'],
+  prevention: '',
+}
+
+export function candidatesFor(symptom, crop) {
+  const ids = crop
+    ? symptom.candidates[crop] || []
+    : Object.values(symptom.candidates).flat()
+  return ids.map((id) => DISEASES.find((d) => d.id === id)).filter(Boolean)
 }
 
 // AI ke fasal ke naam se hamari fasal pehchanna
@@ -305,6 +372,6 @@ export function genericDisease(apiName) {
 // Bolne ke liye poora paighaam
 export function resultSpeech(d) {
   if (d.id === 'healthy') return `${d.name}۔ ${d.steps.join('۔ ')}`
-  if (d.id === 'unknown') return `${d.symptoms} ${d.steps.join('۔ ')}`
+  if (d.id === 'unknown' || d.id === 'sym_no_leaf') return `${d.symptoms} ${d.steps.join('۔ ')}`
   return `آپ کی فصل میں ${d.name} ہے۔ ${d.symptoms} کیا کریں: ${d.steps.join('۔ ')}`
 }

@@ -1,33 +1,29 @@
 # Data aur Awaaz — kahan se, kaise
 
-## 1. Photo se bimari kaise pehchani jaati hai
+## 1. Photo se bimari kaise pehchani jaati hai (sab phone par, koi API nahi)
 
 ```
-Kisan fasal chunta hai → photo leta hai
-   → (phone par) photo dhundli / andheri / bohat roshan? → dobara photo
-   → (phone par) photo chhoti (1024px JPEG)
-   → /api/diagnose (server)  → Crop.health AI (Kindwise)
-   → AI ka jawab: bimari ka English/scientific naam + yaqeen (%)
-   → src/diseases.js mein `keywords` se Urdu entry dhoondi jaati hai
-   → yaqeen 70% se kam ya match nahi → "Expert Review" (admin panel)
-   → warna: Urdu naam, nishaniyan, ilaaj, bachao + awaaz
+Photo → (phone) dhundli / andheri / bohat roshan? → dobara photo
+      → (phone) apna AI model hai? (public/model/meta.json)
+            haan, yaqeen ≥ 70% → bimari + fasal  ("AI")
+      → warna rang ki jaanch (src/analyzer/color.js):
+            hara / peela / bhure dhabbe / naranji daane ka hissa
+            → alamat (kungi jaise daane / peelahat / dhabbe) + mumkina bimariyan ("رنگ")
+            → photo expert review mein
+      → photo + nateeja server par: data/uploads + data/scans.json
+      → expert Admin → Expert Review mein sahi bimari chunta hai → data/labels.json
+      → npm run dataset → Colab notebook → naya model → public/model
 ```
 
-- Code: `src/imageTools.js` (quality check), `src/diagnose.js` (faisla), `api/diagnose.js` (server).
-- **API key:** admin.kindwise.com se lein → Vercel → Settings → Environment Variables → `KINDWISE_API_KEY`.
-  Key na ho to app **demo nateeja** dikhati hai (screen par "ڈیمو نتیجہ" likha aata hai).
-- `npm run dev` mein server function nahi chalta (demo mode). Asli test: `npx vercel dev` ya Vercel par deploy.
+- Rang ki hadd (thresholds): `src/analyzer/color.js` → `COLOR_LIMITS` — asli photos dekh kar adjust karein.
+- Model: `src/analyzer/model.js` (TensorFlow.js; library sirf tab download hoti hai jab model maujood ho).
+- Training: [`training/`](../training/README.md).
 
-### Baad mein apna AI model (API ka kharcha khatam)
-Photos ke free datasets:
+### Shuruaati photos ke free datasets
 - **PlantVillage** — 54,303 photos, 38 classes (zyada tar tamatar/aalu/makai; lab jaisi photos).
 - **PlantCity (Pakistan)** — 10,667 photos, 52 classes.
-- **Cotton leaf disease dataset** — 2,137 field photos (experts ki nigrani mein).
+- **Cotton leaf disease dataset** — 2,137 field photos.
 - **Rice (Chenab ke qareeb)** — ~1,700 mobile photos.
-- **Apna data:** har scan ki photo save karein; expert admin panel mein sahi label lagaye.
-
-Tareeqa: MobileNet / EfficientNet (pehle se trained) + transfer learning, Google Colab par →
-TensorFlow Lite → phone ke andar (internet ke baghair chalega).
 
 ## 2. Bimariyon ki maloomat (ilaaj)
 

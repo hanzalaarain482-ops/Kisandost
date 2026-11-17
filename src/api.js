@@ -68,10 +68,61 @@ export async function adminLogin(password) {
         ok: true,
         server: false,
         settings: localSettings(),
-        status: { whatsappConfigured: false, storeAvailable: false },
+        status: { whatsappConfigured: false, storage: 'browser' },
       }
     }
     return { ok: false, server: false }
+  }
+}
+
+// ---------- Mandi rates ----------
+export async function fetchRates() {
+  try {
+    const { status, data } = await call('/api/rates')
+    return status === 200 && Array.isArray(data.rates) ? data : null
+  } catch {
+    return null
+  }
+}
+
+export async function adminSaveRates(password, rates) {
+  try {
+    const { status } = await call('/api/rates', { method: 'POST', body: { rates }, auth: password })
+    return status === 200
+  } catch {
+    return false
+  }
+}
+
+// ---------- Scans / expert labels ----------
+export async function adminScans(password) {
+  try {
+    const { status, data } = await call('/api/scans', { auth: password })
+    return status === 200 ? data : null
+  } catch {
+    return null
+  }
+}
+
+export async function adminLabel(password, scanId, label) {
+  try {
+    const { status } = await call('/api/label', { method: 'POST', body: { scanId, label }, auth: password })
+    return status === 200
+  } catch {
+    return false
+  }
+}
+
+export async function adminChangePassword(password, newPassword) {
+  try {
+    const { status, data } = await call('/api/admin-password', {
+      method: 'POST',
+      body: { newPassword },
+      auth: password,
+    })
+    return status === 200 ? { ok: true } : { ok: false, error: data.error }
+  } catch {
+    return { ok: false, error: 'network' }
   }
 }
 

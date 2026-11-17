@@ -1,74 +1,82 @@
 # کسان دوست · Kisan Dost
 
-Pakistani kisanon ke liye app: fasal ki photo se bimari pehchanein, mandi rates dekhein, mausam ka alert lein, aur expert se baat karein.
-Yeh app un logon ke liye bhi bani hai jo padhna nahi jaante: bade tasveeron wale buttons, har cheez awaaz mein sunne ka option, aur mic se bol kar chalane ki suvidha.
+Pakistani kisanon ke liye app: patte ki photo se bimari pehchanein, mandi rates dekhein, mausam ka alert lein, aur expert se baat karein.
+Un logon ke liye bhi jo padhna nahi jaante: bade tasveeron wale buttons, har cheez awaaz mein, aur mic se bol kar chalana.
 
-## Kya kya bana hua hai (MVP / demo)
+**Kisi bahar ki API ki zaroorat nahi** — photo ka analysis phone par hota hai, aur saara data aapki apni files mein save hota hai.
 
-**Kisan app** (mobile, Urdu, RTL, phone mein install ho sakti hai — PWA)
-- Zubaan chunein: Urdu / Punjabi / Saraiki
-- Login: mobile number → **WhatsApp par 4 digit code**; na aaye to admin ka demo code (default `1234`)
-- Home: 4 bade rangeen buttons — Fasal check, Mandi rate, Mausam, Expert se madad — aur mic button (bol kar "mandi" ya "mausam" kahein)
-- Fasal check: photo → **fasal aur bimari dono AI khud pehchanta hai** (chahein to fasal khud bhi chun sakte hain) → photo → dhundli/andheri photo par wapas → AI nateeja (laal = bimari, hara = theek, peela = expert ko bheja) → nishaniyan, ilaaj, bachao — sab awaaz mein
-- Bimariyon ki Urdu library: 13 bimariyan/keede (`src/diseases.js`)
-- Awaaz: pehle insaani recording, na ho to machine awaaz — poori tafseel [docs/DATA.md](docs/DATA.md)
-- Mandi rates: fasal ki tasveer, bada rate, upar/neeche ka rang wala nishan; dabane par rate bol kar sunata hai
-- Mausam: aaj ka mausam, 5 din, "aaj spray kar sakte hain / nahi"
-- Madad: expert ko phone ya WhatsApp
-
-**Admin panel** — `/#admin`
-- Login: live par `ADMIN_PASSWORD`, local demo par `admin123`
-- **Login / OTP** settings: WhatsApp OTP aur demo code ka control
-- Dashboard: kisan, scans, district ke hisaab se bimari, alert bhejna, data sources, partners
-- Mandi rates update (save karte hi kisan app mein nazar aate hain)
-- Expert review: jin scans par AI ka confidence 70% se kam ho
-- Disease Library: saari bimariyan + "verified" status
-- Voice: har paighaam sunein, apni awaaz mein record karein, voice artist ke liye script download
-
-## Live karna (Vercel) — Environment Variables
-
-Vercel → Project → Settings → Environment Variables:
-
-| Variable | Kis liye | Kahan se |
-|---|---|---|
-| `ADMIN_PASSWORD` | Admin panel ka password | Khud rakhein (mazboot) |
-| `OTP_SECRET` | OTP code ko sign karna | Koi bhi lamba random text |
-| `WHATSAPP_TOKEN` | WhatsApp par OTP | Meta for Developers → WhatsApp → API Setup (permanent token) |
-| `WHATSAPP_PHONE_ID` | Bhejne wala number | Wahi page: "Phone number ID" |
-| `WHATSAPP_TEMPLATE` | Approved **Authentication** template ka naam | WhatsApp Manager → Message templates (copy-code button) |
-| `WHATSAPP_TEMPLATE_LANG` | Template ki zubaan (default `en`) | Template ki language code |
-| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Admin settings save karna (demo code on/off) | upstash.com (free Redis) |
-| `DEMO_OTP_CODE`, `DEMO_OTP_ENABLED`, `SHOW_DEMO_CODE` | Upstash na ho to default demo settings | Khud |
-| `KINDWISE_API_KEY` | Photo se fasal + bimari (asli AI) | admin.kindwise.com |
-
-### Login kaise chalta hai
-1. Kisan number daalta hai → `/api/otp-send` WhatsApp par 4 digit code bhejta hai
-2. Kisan code likhta hai → `/api/otp-verify` check karta hai → login
-3. Code na aaye → **"کوڈ نہیں آیا؟ ڈیمو کوڈ لگائیں"** (sirf jab admin ne on kiya ho)
-4. Admin → **Login / OTP** page: WhatsApp on/off, demo code on/off, code badlein, kisan ko dikhayein ya nahi
-
-### Awaaz
-| Tareeqa | Kya karna hai |
-|---|---|
-| Google | `GOOGLE_TTS_KEY=... npm run audio:google` |
-| Insaani | `npm run audio:list` → CSV voice artist ko → files `public/audio/ur/` mein |
-
-## Chalane ka tareeqa
+## Chalana
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173
-npm run build    # dist/ folder bana dega (kisi bhi static hosting par daal dein)
+npm run build
+npm start          # http://localhost:3000      admin: http://localhost:3000/#admin
 ```
 
-## Agle qadam (asli app banane ke liye)
+- Pehla admin password: **`admin123`** → admin panel → **Settings** mein foran badlein
+- Kisan login: koi bhi number → WhatsApp code (keys lagne ke baad) ya admin ka **demo code** (default `1234`)
+- `npm run dev` sirf design dekhne ke liye hai (server nahi chalta, data browser mein rehta hai)
 
-1. **Expert verification:** `src/diseases.js` ki har entry zarai expert se check karwayein
-2. **Backend:** Firebase ya Supabase — Phone OTP login, database (kisan, scans, rates), photo storage
-3. **Apna AI model:** jama shuda photos + Pakistani datasets se (docs/DATA.md)
-4. **Mausam:** Open-Meteo API (free) district ke hisaab se
-5. **Mandi rates:** sarkari market data + har mandi mein ek local reporter (admin panel se update)
-6. **Android app:** isi React code ko Capacitor se APK bana kar Play Store par
+## Data kahan save hota hai — `data/` folder
+
+| File | Kya hai |
+|---|---|
+| `settings.json` | OTP / demo code settings (admin se) |
+| `admin.json` | Admin password (hash — saaf text nahi) |
+| `rates.json` | Mandi rates (admin se) |
+| `farmers.json` | Login karne wale kisan |
+| `scans.json` | Har photo check ka record |
+| `uploads/*.jpg` | Kisanon ki photos |
+| `labels.json` | Expert ne photo ko jo sahi bimari batayi (model training) |
+
+Folder badalna ho to `DATA_DIR=/path npm start`. **Backup ke liye bas `data/` folder copy karein.**
+
+> Hosting: koi bhi jagah jahan Node chal sake aur files save rahein — VPS (DigitalOcean / Hostinger VPS), Render (disk ke saath), Railway (volume ke saath), ya apna PC.
+> Vercel / Netlify jaisi "serverless" hosting par files save **nahi** rehti.
+
+## Photo ka analysis (apna, phone par)
+
+1. **Apna AI model** (`public/model/`) ho → woh bimari aur fasal dono pehchanta hai (nateeje par "AI")
+2. Model na ho → **rang ki jaanch**: hara / peela / bhure dhabbe / naranji daane gin kar alamat aur mumkina bimariyan batata hai (nateeje par "رنگ"), aur photo expert review mein jaati hai
+3. Har photo `data/uploads/` mein save → admin **Expert Review** mein sahi bimari chunta hai → `labels.json`
+4. `npm run dataset` → [training notebook](training/) (Google Colab, free) → model → `public/model/` → `npm run build`
+
+Is tarah jitna app chalegi, utna model behtar hota jaayega.
+
+## Kisan app
+- Zubaan: Urdu / Punjabi / Saraiki
+- Login: number → WhatsApp code; na aaye to admin ka demo code
+- Home: bada "fasal check" card, mandi, mausam, madad; neeche bar mein mic (bol kar "mandi", "mausam")
+- Fasal check: photo → dhundli/andheri photo par wapas → nateeja, nishaniyan, ilaaj, bachao — sab awaaz mein
+- Phone mein install ho sakti hai (PWA), poori screen
+
+## Admin panel (`/#admin`)
+- Dashboard: asli kisan, scans, photos, sab se zyada bimariyan
+- Expert Review: photo dekh kar sahi bimari → training data
+- Disease Library, Voice (recordings), Mandi Rates
+- Settings: WhatsApp OTP on/off, demo code on/off + code, kisan ko dikhayein ya nahi, admin password
+
+## Baad mein (env variables)
+
+| Variable | Kis liye |
+|---|---|
+| `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `WHATSAPP_TEMPLATE` | WhatsApp par asli OTP (Meta Cloud API, "Authentication" template) |
+| `WHATSAPP_TEMPLATE_LANG` | Template ki zubaan (default `en`) |
+| `PORT`, `DATA_DIR` | Server port, data folder |
+| `GOOGLE_TTS_KEY` | `npm run audio:google` se Urdu awaaz ki MP3 |
+
+## Awaaz
+| Tareeqa | Kya karna hai |
+|---|---|
+| Insaani | `npm run audio:list` → CSV voice artist ko → files `public/audio/ur/` mein |
+| Admin panel | Voice page → Record → Download |
+| Google | `GOOGLE_TTS_KEY=... npm run audio:google` |
+
+Tafseel: [docs/DATA.md](docs/DATA.md)
+
+## Zaroori
+- `src/diseases.js` ki har bimari launch se pehle zarai expert se verify karwayein (`verified: true`)
+- Rang ki jaanch sirf ishara deti hai, pakka faisla nahi — is liye har aisa nateeja expert ke paas bhi jaata hai
 
 ## Tech
-React 19 + Vite · Noto Naskh Arabic font · Web Speech API (bolna/sunna)
+React 19 + Vite · Node server (koi extra package nahi) · TensorFlow.js (phone par AI) · Web Speech API
