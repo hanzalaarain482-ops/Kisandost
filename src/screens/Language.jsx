@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import Icon from '../icons.jsx'
-import { speak, vibrate } from '../speak.js'
+import { say, vibrate } from '../speak.js'
 
 const langs = [
   { id: 'ur', label: 'اردو', say: 'آپ نے اردو چنی ہے' },
@@ -29,7 +29,7 @@ export default function Language({ onDone }) {
           onClick={() => {
             vibrate()
             setLang(l.id)
-            speak(l.say)
+            say('pick_language_' + l.id, l.say)
           }}
         >
           <span className="tick">{lang === l.id && <Icon name="check" size={24} />}</span>

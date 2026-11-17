@@ -23,28 +23,6 @@ export const weather = {
   alert: 'جمعرات کو بارش ہوگی۔ اس دن اسپرے نہ کریں۔',
 }
 
-// AI ka jawab (demo). Asli app mein photo server par jaayegi aur AI model jawab dega.
-export const demoResults = [
-  {
-    sick: true,
-    name: 'گندم کی پیلی کنگی',
-    english: 'Yellow Rust',
-    confidence: 92,
-    steps: [
-      'زرعی ماہر یا ڈیلر سے فنگس کش دوا کا پوچھیں',
-      'اسپرے صبح یا شام کو کریں',
-      'سات دن بعد دوبارہ تصویر لیں',
-    ],
-  },
-  {
-    sick: false,
-    name: 'فصل صحت مند ہے',
-    english: 'Healthy',
-    confidence: 95,
-    steps: ['پانی اور کھاد وقت پر دیتے رہیں', 'ہفتے میں ایک بار تصویر لے کر چیک کریں'],
-  },
-]
-
 export const HELPLINE = '0300-0000000' // [APNA HELPLINE NUMBER]
 
 export function formatPrice(n) {

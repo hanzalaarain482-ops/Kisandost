@@ -1,8 +1,9 @@
 import Icon from './icons.jsx'
-import { speak, vibrate } from './speak.js'
+import { say, speak, vibrate } from './speak.js'
 
-// Har jagah chhota speaker button: dabane par likha hua bol kar sunata hai
-export function SpeakBtn({ text, label = 'سنیں', size = 26 }) {
+// Har jagah chhota speaker button: dabane par likha hua bol kar sunata hai.
+// `id` ho to recording chalti hai (agar maujood ho), warna `text` TTS se.
+export function SpeakBtn({ text, id, label = 'سنیں', size = 26 }) {
   return (
     <button
       type="button"
@@ -11,7 +12,8 @@ export function SpeakBtn({ text, label = 'سنیں', size = 26 }) {
       onClick={(e) => {
         e.stopPropagation()
         vibrate()
-        speak(text)
+        if (id) say(id, text)
+        else speak(text)
       }}
     >
       <Icon name="speaker" size={size} />
@@ -19,7 +21,7 @@ export function SpeakBtn({ text, label = 'سنیں', size = 26 }) {
   )
 }
 
-export function TopBar({ title, onBack, speakText }) {
+export function TopBar({ title, onBack, speakText, speakId }) {
   return (
     <header className="topbar">
       {onBack && (
@@ -28,7 +30,7 @@ export function TopBar({ title, onBack, speakText }) {
         </button>
       )}
       <h1>{title}</h1>
-      {speakText && <SpeakBtn text={speakText} />}
+      {(speakText || speakId) && <SpeakBtn text={speakText} id={speakId} />}
     </header>
   )
 }

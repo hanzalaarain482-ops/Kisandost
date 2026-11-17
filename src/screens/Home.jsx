@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import Icon from '../icons.jsx'
 import { SpeakBtn } from '../components.jsx'
-import { speak, vibrate } from '../speak.js'
+import { say, speak, vibrate } from '../speak.js'
 import { weather } from '../data.js'
 
 // Awaaz se app chalana: kisan "mandi" ya "mausam" bole to woh screen khul jaaye
@@ -16,14 +16,14 @@ export default function Home({ go, onLogout }) {
   const [listening, setListening] = useState(false)
 
   useEffect(() => {
-    speak('کسان دوست میں خوش آمدید۔ تصویر لینے کے لیے سبز بٹن دبائیں')
+    say('welcome')
   }, [])
 
   function listen() {
     vibrate()
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SR) {
-      speak('بٹن دبا کر استعمال کریں')
+      say('use_buttons')
       return
     }
     try {
@@ -34,7 +34,7 @@ export default function Home({ go, onLogout }) {
         const said = e.results[0][0].transcript.toLowerCase()
         const match = voiceRoutes.find((r) => r.words.some((w) => said.includes(w)))
         if (match) go(match.go)
-        else speak('سمجھ نہیں آیا، دوبارہ بولیں')
+        else say('not_understood')
       }
       rec.onend = () => setListening(false)
       rec.onerror = () => setListening(false)
@@ -45,9 +45,9 @@ export default function Home({ go, onLogout }) {
     }
   }
 
-  const tap = (screen, text) => () => {
+  const tap = (screen, id) => () => {
     vibrate()
-    speak(text)
+    say(id)
     go(screen)
   }
 
@@ -75,7 +75,7 @@ export default function Home({ go, onLogout }) {
 
       <div className="screen">
         <div className="tiles">
-          <button type="button" className="tile green wide" onClick={tap('scan', 'فصل کی تصویر لیں')}>
+          <button type="button" className="tile green wide" onClick={tap('scan', 'nav_scan')}>
             <span className="icon-wrap">
               <Icon name="camera" size={50} />
             </span>
@@ -85,21 +85,21 @@ export default function Home({ go, onLogout }) {
             </span>
           </button>
 
-          <button type="button" className="tile wheat" onClick={tap('mandi', 'منڈی کے ریٹ')}>
+          <button type="button" className="tile wheat" onClick={tap('mandi', 'nav_mandi')}>
             <span className="icon-wrap">
               <Icon name="chart" size={48} />
             </span>
             منڈی ریٹ
           </button>
 
-          <button type="button" className="tile sky" onClick={tap('weather', 'موسم')}>
+          <button type="button" className="tile sky" onClick={tap('weather', 'nav_weather')}>
             <span className="icon-wrap">
               <Icon name="sun" size={48} />
             </span>
             موسم
           </button>
 
-          <button type="button" className="tile clay wide" onClick={tap('help', 'ماہر سے مدد')}>
+          <button type="button" className="tile clay wide" onClick={tap('help', 'nav_help')}>
             <span className="icon-wrap">
               <Icon name="phone" size={46} />
             </span>
@@ -112,7 +112,7 @@ export default function Home({ go, onLogout }) {
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
           <span style={{ fontSize: 18, color: 'var(--muted)' }}>ہر بٹن پر</span>
-          <SpeakBtn text="ہر بٹن کے ساتھ سپیکر کا نشان ہے، اسے دبائیں تو آواز میں سنیں" size={22} />
+          <SpeakBtn id="tap_speaker" size={22} />
           <span style={{ fontSize: 18, color: 'var(--muted)' }}>دبا کر سنیں</span>
         </div>
       </div>

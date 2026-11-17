@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { TopBar } from '../components.jsx'
-import { speak, vibrate } from '../speak.js'
+import { say, speak, vibrate } from '../speak.js'
 import { crops, formatPrice } from '../data.js'
 
 const trendWord = { up: 'بڑھ گیا', down: 'کم ہو گیا', same: 'وہی ہے' }
@@ -10,12 +10,12 @@ export default function Mandi({ onBack, rates }) {
   const list = rates || crops
 
   useEffect(() => {
-    speak('منڈی کے ریٹ۔ کسی بھی فصل کو دبائیں تو ریٹ سنیں')
+    say('mandi_intro')
   }, [])
 
   return (
     <>
-      <TopBar title="منڈی ریٹ" onBack={onBack} speakText="منڈی کے ریٹ۔ کسی بھی فصل کو دبائیں تو ریٹ سنیں" />
+      <TopBar title="منڈی ریٹ" onBack={onBack} speakId="mandi_intro" />
       <div className="screen">
         <p className="hint">ساہیوال منڈی · فی 40 کلو · روپے</p>
 

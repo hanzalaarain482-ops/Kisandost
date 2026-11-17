@@ -1,20 +1,19 @@
 import { useEffect } from 'react'
 import Icon from '../icons.jsx'
 import { TopBar } from '../components.jsx'
-import { speak } from '../speak.js'
+import { say } from '../speak.js'
 import { HELPLINE } from '../data.js'
 
 export default function Help({ onBack }) {
-  const say = 'زرعی ماہر سے بات کرنے کے لیے نارنجی بٹن دبائیں۔ واٹس ایپ پر تصویر بھیجنے کے لیے سبز بٹن دبائیں'
   const num = HELPLINE.replace(/-/g, '')
 
   useEffect(() => {
-    speak(say)
+    say('help_intro')
   }, [])
 
   return (
     <>
-      <TopBar title="ماہر سے مدد" onBack={onBack} speakText={say} />
+      <TopBar title="ماہر سے مدد" onBack={onBack} speakId="help_intro" />
       <div className="screen">
         <div className="help-card">
           <div className="logo" style={{ width: 110, height: 110, background: 'var(--clay)' }}>

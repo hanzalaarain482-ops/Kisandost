@@ -9,7 +9,9 @@ Yeh app un logon ke liye bhi bani hai jo padhna nahi jaante: bade tasveeron wale
 - Zubaan chunein: Urdu / Punjabi / Saraiki
 - Login: sirf mobile number + 4 digit code (bade number pad ke saath, kuch likhna nahi padta). Demo code: `1234`
 - Home: 4 bade rangeen buttons — Fasal check, Mandi rate, Mausam, Expert se madad — aur mic button (bol kar "mandi" ya "mausam" kahein)
-- Fasal check: camera se photo → nateeja (laal = bimari, hara = theek) → ilaaj awaaz mein
+- Fasal check: fasal chunein (gandum / kapaas / chawal) → photo → dhundli/andheri photo par wapas → AI nateeja (laal = bimari, hara = theek, peela = expert ko bheja) → nishaniyan, ilaaj, bachao — sab awaaz mein
+- Bimariyon ki Urdu library: 13 bimariyan/keede (`src/diseases.js`)
+- Awaaz: pehle insaani recording, na ho to machine awaaz — poori tafseel [docs/DATA.md](docs/DATA.md)
 - Mandi rates: fasal ki tasveer, bada rate, upar/neeche ka rang wala nishan; dabane par rate bol kar sunata hai
 - Mausam: aaj ka mausam, 5 din, "aaj spray kar sakte hain / nahi"
 - Madad: expert ko phone ya WhatsApp
@@ -19,6 +21,16 @@ Yeh app un logon ke liye bhi bani hai jo padhna nahi jaante: bade tasveeron wale
 - Dashboard: kisan, scans, district ke hisaab se bimari, alert bhejna, data sources, partners
 - Mandi rates update (save karte hi kisan app mein nazar aate hain)
 - Expert review: jin scans par AI ka confidence 70% se kam ho
+- Disease Library: saari bimariyan + "verified" status
+- Voice: har paighaam sunein, apni awaaz mein record karein, voice artist ke liye script download
+
+## Asli AI aur awaaz chalu karna
+
+| Cheez | Kya karna hai |
+|---|---|
+| Photo AI | admin.kindwise.com se key → Vercel env var `KINDWISE_API_KEY` |
+| Awaaz (Google) | `GOOGLE_TTS_KEY=... npm run audio:google` |
+| Awaaz (insaani) | `npm run audio:list` → CSV voice artist ko → files `public/audio/ur/` mein |
 
 > Sab numbers aur AI nateeja abhi **demo** hain. Backend lagna baaki hai.
 
@@ -32,11 +44,11 @@ npm run build    # dist/ folder bana dega (kisi bhi static hosting par daal dein
 
 ## Agle qadam (asli app banane ke liye)
 
-1. **Backend:** Firebase ya Supabase — Phone OTP login, database (kisan, scans, rates), photo storage
-2. **AI:** plant disease model (PlantVillage dataset par trained) → baad mein Pakistani kheton ki photos se behtar
-3. **Mausam:** Open-Meteo API (free) district ke hisaab se
-4. **Mandi rates:** sarkari market data + har mandi mein ek local reporter (admin panel se update)
-5. **Awaaz:** abhi browser ki TTS; behtar Urdu awaaz ke liye Google Cloud Text-to-Speech
+1. **Expert verification:** `src/diseases.js` ki har entry zarai expert se check karwayein
+2. **Backend:** Firebase ya Supabase — Phone OTP login, database (kisan, scans, rates), photo storage
+3. **Apna AI model:** jama shuda photos + Pakistani datasets se (docs/DATA.md)
+4. **Mausam:** Open-Meteo API (free) district ke hisaab se
+5. **Mandi rates:** sarkari market data + har mandi mein ek local reporter (admin panel se update)
 6. **Android app:** isi React code ko Capacitor se APK bana kar Play Store par
 
 ## Tech

@@ -194,6 +194,21 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 4px solid 
 .verdict .big-icon { width: 76px; height: 76px; border-radius: 38px; display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; }
 .verdict.bad .big-icon { background: var(--red); }
 .verdict.good .big-icon { background: var(--green); }
+.verdict.wait { background: var(--wheat-soft); color: #5a3d00; }
+.verdict.wait .big-icon { background: var(--wheat); color: #3d2900; }
+.crop-pick { display: flex; flex-direction: column; gap: 14px; }
+.crop-pick-btn {
+  display: flex; align-items: center; gap: 18px; min-height: 120px; padding: 0 20px;
+  border-radius: 26px; border: 3px solid var(--line); background: var(--card);
+  font-size: 34px; font-weight: 700; box-shadow: 0 4px 0 var(--line);
+}
+.crop-pick-btn:active { transform: translateY(3px); box-shadow: none; border-color: var(--green); }
+.big-emoji { width: 90px; height: 90px; border-radius: 24px; background: var(--wheat-soft); display: flex; align-items: center; justify-content: center; font-size: 56px; }
+.admin audio { height: 32px; max-width: 220px; }
+.admin .btn.rec { background: var(--red); }
+.admin .muted { color: var(--muted); font-size: 13px; }
+.admin .lib-card { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.admin .urdu { font-family: 'Noto Naskh Arabic', serif; direction: rtl; text-align: right; font-size: 16px; line-height: 1.8; }
 .verdict h2 { margin: 0; font-size: 28px; }
 .verdict small { font-family: Inter; font-size: 15px; color: var(--muted); }
 .steps-card { background: var(--card); border-radius: 24px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }

@@ -1,7 +1,15 @@
-// Bol kar sunana (Text-to-Speech). Browser ki apni awaaz use hoti hai.
-// Android par Google TTS mein Urdu awaaz hoti hai. Agar na mile to app chup rehti hai, crash nahi hoti.
+// =====================================================================
+// AWAAZ (Voice)
+// say(id)        → pehle recording (public/audio/<lang>/<id>.mp3|webm), warna TTS
+// speak(text)    → seedha phone ki awaaz (jaise mandi ke badalte rates)
+// Recordings ki list `public/audio/manifest.json` mein hoti hai
+// (`npm run audio:manifest` khud bana deta hai).
+// =====================================================================
+import { ALL_PHRASES } from './phrases.js'
 
 let urduVoice = null
+let manifest = null
+let current = null
 
 function pickVoice() {
   if (typeof window === 'undefined' || !window.speechSynthesis) return
@@ -17,10 +25,30 @@ if (typeof window !== 'undefined' && window.speechSynthesis) {
   window.speechSynthesis.onvoiceschanged = pickVoice
 }
 
-export function speak(text) {
+function lang() {
   try {
-    if (!window.speechSynthesis) return
-    window.speechSynthesis.cancel()
+    return JSON.parse(localStorage.getItem('kd_lang') || '"ur"') || 'ur'
+  } catch {
+    return 'ur'
+  }
+}
+
+export async function loadManifest() {
+  if (manifest) return manifest
+  try {
+    const r = await fetch('./audio/manifest.json', { cache: 'no-cache' })
+    manifest = r.ok ? await r.json() : {}
+  } catch {
+    manifest = {}
+  }
+  return manifest
+}
+loadManifest()
+
+export function speak(text) {
+  stopSpeaking()
+  try {
+    if (!window.speechSynthesis || !text) return
     const u = new SpeechSynthesisUtterance(text)
     u.lang = urduVoice?.lang || 'ur-PK'
     if (urduVoice) u.voice = urduVoice
@@ -31,11 +59,41 @@ export function speak(text) {
   }
 }
 
+// Recording ho to woh, warna TTS. Pehle farmer ki zubaan, phir Urdu.
+export function say(id, fallbackText) {
+  const text = fallbackText || ALL_PHRASES[id] || ''
+  const m = manifest || {}
+  const l = lang()
+  const file = m[l]?.[id] || m.ur?.[id]
+  const folder = m[l]?.[id] ? l : 'ur'
+  if (!file) {
+    speak(text)
+    return
+  }
+  stopSpeaking()
+  try {
+    const a = new Audio(`./audio/${folder}/${file}`)
+    current = a
+    a.onerror = () => speak(text)
+    a.play().catch(() => speak(text))
+  } catch {
+    speak(text)
+  }
+}
+
 export function stopSpeaking() {
   try {
     window.speechSynthesis?.cancel()
   } catch {
     /* ignore */
+  }
+  if (current) {
+    try {
+      current.pause()
+    } catch {
+      /* ignore */
+    }
+    current = null
   }
 }
 

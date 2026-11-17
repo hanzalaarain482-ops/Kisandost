@@ -1,7 +1,10 @@
 import { useState } from 'react'
+import VoicePage from './VoicePage.jsx'
+import LibraryPage from './LibraryPage.jsx'
+import { loadScans, REVIEW_BELOW as REVIEW_P } from '../diagnose.js'
 
 // DEMO data — asli data database se aayega
-const scans = [
+const demoScans = [
   { farmer: 'Rahim Khan', district: 'Sahiwal', crop: 'Wheat', result: 'Yellow Rust', conf: 92 },
   { farmer: 'Ghulam Abbas', district: 'Multan', crop: 'Cotton', result: 'Leaf Curl Virus', conf: 88 },
   { farmer: 'Bashir Ahmed', district: 'Okara', crop: 'Rice', result: 'Unclear', conf: 54 },
@@ -19,11 +22,25 @@ const sources = [
   ['Treatment library (expert verified)', '3 crops', true],
 ]
 
-const menu = ['Dashboard', 'Mandi Rates', 'Expert Review', 'Farmers', 'Partners & Ads', 'Settings']
-const REVIEW_BELOW = 70 // is % se kam AI confidence → expert check karega
+const menu = ['Dashboard', 'Expert Review', 'Disease Library', 'Voice', 'Mandi Rates', 'Farmers', 'Partners & Ads', 'Settings']
+const REVIEW_BELOW = Math.round(REVIEW_P * 100) // is % se kam AI confidence → expert check karega
+const cropEn = { wheat: 'Wheat', cotton: 'Cotton', rice: 'Rice' }
 
 export default function AdminDashboard({ rates, setRates, onLogout }) {
   const [page, setPage] = useState('Dashboard')
+  // Is phone/browser par kiye gaye asli scans + demo scans
+  const scans = [
+    ...loadScans().map((s) => ({
+      farmer: 'Ye device · ' + new Date(s.at).toLocaleTimeString(),
+      district: '—',
+      crop: cropEn[s.crop] || s.crop,
+      result: s.review ? (s.aiGuess || 'Unclear') : s.name,
+      conf: s.confidence,
+      review: s.review,
+      mode: s.mode,
+    })),
+    ...demoScans,
+  ].slice(0, 8)
   const [toast, setToast] = useState('')
   const [draft, setDraft] = useState(() => Object.fromEntries(rates.map((r) => [r.id, r.price])))
 
@@ -85,10 +102,10 @@ export default function AdminDashboard({ rates, setRates, onLogout }) {
                       </thead>
                       <tbody>
                         {scans.map((s) => (
-                          <tr key={s.farmer}>
+                          <tr key={s.farmer + s.result}>
                             <td>{s.farmer}</td><td>{s.district}</td><td>{s.crop}</td><td>{s.result}</td><td>{s.conf}%</td>
                             <td>
-                              {s.conf < REVIEW_BELOW
+                              {s.review || s.conf < REVIEW_BELOW
                                 ? <span className="tag review">Expert review</span>
                                 : <span className="tag ok">Auto-sent</span>}
                             </td>
@@ -183,8 +200,8 @@ export default function AdminDashboard({ rates, setRates, onLogout }) {
                 <table>
                   <thead><tr><th>Farmer</th><th>District</th><th>Crop</th><th>AI guess</th><th>Conf.</th><th></th></tr></thead>
                   <tbody>
-                    {scans.filter((s) => s.conf < REVIEW_BELOW).map((s) => (
-                      <tr key={s.farmer}>
+                    {scans.filter((s) => s.review || s.conf < REVIEW_BELOW).map((s) => (
+                      <tr key={s.farmer + s.result}>
                         <td>{s.farmer}</td><td>{s.district}</td><td>{s.crop}</td><td>{s.result}</td><td>{s.conf}%</td>
                         <td><button type="button" className="btn" onClick={() => flash('Expert ka jawab kisan ko bhej diya (demo)')}>Answer</button></td>
                       </tr>
@@ -194,6 +211,10 @@ export default function AdminDashboard({ rates, setRates, onLogout }) {
               </div>
             </div>
           )}
+
+          {page === 'Disease Library' && <LibraryPage />}
+
+          {page === 'Voice' && <VoicePage flash={flash} />}
 
           {['Farmers', 'Partners & Ads', 'Settings'].includes(page) && (
             <div className="panel">

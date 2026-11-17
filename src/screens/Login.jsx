@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import Icon from '../icons.jsx'
 import { Keypad, SpeakBtn, TopBar } from '../components.jsx'
-import { speak, vibrate } from '../speak.js'
+import { say, vibrate } from '../speak.js'
 
 // Login: sirf mobile number + 4 digit code. Naam ya password likhna nahi padta.
 // DEMO: koi bhi number, code = 1234. Asli app mein Firebase Phone Auth SMS bhejega.
@@ -19,7 +19,7 @@ export default function Login({ onBack, onLogin }) {
   const [wrong, setWrong] = useState(false)
 
   useEffect(() => {
-    speak(step === 'phone' ? 'اپنا موبائل نمبر لکھیں' : 'آپ کے فون پر آیا ہوا کوڈ لکھیں')
+    say(step === 'phone' ? 'enter_phone' : 'enter_code')
   }, [step])
 
   const phoneOk = /^03\d{9}$/.test(phone)
@@ -35,12 +35,12 @@ export default function Login({ onBack, onLogin }) {
       if (next.length === 4) {
         if (next === DEMO_OTP) {
           vibrate(60)
-          speak('خوش آمدید')
+          say('login_ok')
           setTimeout(() => onLogin(phone), 300)
         } else {
           vibrate(200)
           setWrong(true)
-          speak('کوڈ غلط ہے، دوبارہ لکھیں')
+          say('wrong_code')
           setTimeout(() => setOtp(''), 600)
         }
       }
@@ -60,7 +60,7 @@ export default function Login({ onBack, onLogin }) {
           <div className="prompt">
             <Icon name="phone" size={34} color="var(--green)" />
             <span>اپنا موبائل نمبر</span>
-            <SpeakBtn text="اپنا موبائل نمبر لکھیں" />
+            <SpeakBtn id="enter_phone" />
           </div>
 
           <div className="phone-display" aria-live="polite">
@@ -99,7 +99,7 @@ export default function Login({ onBack, onLogin }) {
         <div className="prompt">
           <Icon name="chat" size={34} color="var(--green)" />
           <span>فون پر آیا ہوا کوڈ</span>
-          <SpeakBtn text="آپ کے فون پر آیا ہوا چار نمبر کا کوڈ لکھیں" />
+          <SpeakBtn id="enter_code" />
         </div>
         <p className="hint" style={{ direction: 'ltr' }}>{formatPhone(phone)}</p>
 
@@ -123,7 +123,7 @@ export default function Login({ onBack, onLogin }) {
 
         <Keypad onDigit={addDigit} onErase={erase} />
 
-        <button type="button" className="link-btn" onClick={() => speak('کوڈ دوبارہ بھیج دیا گیا ہے')}>
+        <button type="button" className="link-btn" onClick={() => say('code_resent')}>
           کوڈ دوبارہ بھیجیں
         </button>
       </div>
